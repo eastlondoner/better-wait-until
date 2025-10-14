@@ -1,6 +1,6 @@
 // <reference types="@cloudflare/workers-types" />
 import { DurableObject } from "cloudflare:workers";
-import { waitUntil } from "better-wait-until";
+import { waitUntil, KeepAliveDurableObject } from "better-wait-until";
 import htmlPage from "./index.html";
 
 type TaskType = "better-wait-until" | "builtin-wait-until";
@@ -75,16 +75,49 @@ async function completeTask(env: Env, id: string, endTime: number): Promise<void
         .run();
 }
 
-export class BackgroundTaskDO extends DurableObject {
-    constructor(readonly state: DurableObjectState, readonly env: Env) {
-        super(state, env);
-    }
+export class BackgroundTaskDO extends KeepAliveDurableObject<Env> {
+
+    // public pendingPromises: Array<Promise<void> | null> = [];
+
+    // async alarm(alarmInfo?: AlarmInvocationInfo): Promise<void> {
+    //   console.log("alarm", { alarmInfo });
+    //   // filter out null promises
+    //   this.pendingPromises = this.pendingPromises.filter((promise) => promise !== null);
+    //   const ctx = this.ctx;
+    //   const exportsNs = (ctx as any).exports;
+    //   if (!exportsNs) {
+    //       throw new Error("No exports on DurableObject context. You must enable exports by adding the compatibility flag \"enable_ctx_exports\" (see https://developers.cloudflare.com/workers/configuration/compatibility-flags/).");
+    //   }
+    //   const className: string = this.constructor.name ?? "";
+    //   const durableObjectNamespace = exportsNs[className];
+    //   if (!durableObjectNamespace) {
+    //       throw new Error(`No exports namespace for DurableObject class ${className}`);
+    //   }
+    //   console.log("fetching self in alarm", { ctx, className });
+    //   const response = await durableObjectNamespace.get(ctx.id).fetch("http://self/stayAwakeNoOp");
+    //   await response.text();
+    //   console.log("fetch self successful", { ctx, className });
+    //   for (const [index, promise] of this.pendingPromises.entries()) {
+    //     if (!promise) continue;
+    //     const isPromiseFinished = await Promise.race([promise.finally(() => true), new Promise((resolve) => setTimeout(() => resolve(false), 0))]);
+    //     if (isPromiseFinished) {
+    //       this.pendingPromises[index] = null;
+    //     }
+    //   }
+    //   // concurrency safe here because no awaits
+    //   const hasStillGotPendingPromises = this.pendingPromises.some((promise) => promise !== null);
+    //   if (!hasStillGotPendingPromises) {
+    //     // clear the array in place
+    //     this.pendingPromises.length = 0;
+    //     console.log("cleared pending promises", { pendingPromises: this.pendingPromises });
+    //     return;
+    //   }
+    //   // set the alarm again
+    //   this.state.storage.setAlarm(new Date(Date.now() + 10 * 1000));
+    // }
 
     async fetch(request: Request): Promise<Response> {
         const url = new URL(request.url);
-        if (url.pathname === "/stayAwakeNoOp") {
-            return new Response(null, { status: 204 });
-        }
 
         if (url.pathname === "/start") {
             const startTime = Date.now();
@@ -120,11 +153,12 @@ export class BackgroundTaskDO extends DurableObject {
             return new Response(JSON.stringify({ lastTask }), {
                 headers: { "content-type": "application/json" },
             });
-        }
+        }      
 
         return new Response("Not found", { status: 404 });
     }
 }
+
 
 export class BuiltinWaitUntilDO extends DurableObject {
     constructor(readonly state: DurableObjectState, readonly env: Env) {
@@ -132,31 +166,33 @@ export class BuiltinWaitUntilDO extends DurableObject {
     }
 
     async fetch(request: Request): Promise<Response> {
-        const url = new URL(request.url);
-        if (url.pathname === "/startbuiltin") {
-            const startTime = Date.now();
-            const durationMs = Number(url.searchParams.get("durationMs") ?? 0);
-            if (!Number.isFinite(durationMs) || durationMs < 0) {
-                return new Response("Invalid durationMs", { status: 400 });
-            }
+      const url = new URL(request.url);
 
-            const id = `${this.state.id.toString()}-${startTime}`;
-            await createTask(this.env, "builtin-wait-until", id, startTime, durationMs);
+      if (url.pathname === "/startbuiltin") {
+          const startTime = Date.now();
+          const durationMs = Number(url.searchParams.get("durationMs") ?? 0);
+          if (!Number.isFinite(durationMs) || durationMs < 0) {
+              return new Response("Invalid durationMs", { status: 400 });
+          }
 
-            const taskPromise = new Promise<void>((resolve) => setTimeout(resolve, durationMs)).then(async () => {
-                const endTime = Date.now();
-                await completeTask(this.env, id, endTime);
-                console.log("taskPromise resolved (builtin-wait-until)", { id, endTime });
-            });
+          const id = `${this.state.id.toString()}-${startTime}`;
+          await createTask(this.env, "builtin-wait-until", id, startTime, durationMs);
 
-            this.ctx.waitUntil(taskPromise);
+          const taskPromise = new Promise<void>((resolve) => setTimeout(resolve, durationMs)).then(async () => {
+              const endTime = Date.now();
+              await completeTask(this.env, id, endTime);
+              console.log("taskPromise resolved (builtin-wait-until)", { id, endTime });
+          });
 
-            return new Response(JSON.stringify({ status: "started", durationMs }), {
-                status: 202,
-                headers: { "content-type": "application/json" },
-            });
-        }
+          this.ctx.waitUntil(taskPromise);
 
-        return new Response("Not found", { status: 404 });
+          return new Response(JSON.stringify({ status: "started", durationMs }), {
+              status: 202,
+              headers: { "content-type": "application/json" },
+          });
+      }
+      
+     
+      return new Response("Not found", { status: 404 });
     }
-}
+  }

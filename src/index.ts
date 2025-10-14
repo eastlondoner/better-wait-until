@@ -1,5 +1,6 @@
 /// <reference types="@cloudflare/workers-types" />
 import { DurableObject } from "cloudflare:workers";
+
 import createDebug from "debug";
 
 const logDebug = createDebug("better-wait-until");
@@ -11,6 +12,79 @@ export function enableDebug(namespaces?: string): void {
 
 export function disableDebug(): void {
     createDebug.disable();
+}
+
+
+const WEBSOCKET_ENDPOINT = new URL("https://fake/better-wait-until/websocket");
+const websocketPath = WEBSOCKET_ENDPOINT.pathname;
+function getKeepAliveUrl(className: string): URL {
+    return new URL(WEBSOCKET_ENDPOINT.toString() + `?className=${className}`);
+}
+
+// Store constructorUpdate in global scope for use by separate modules
+(globalThis as any).__betterWaitUntilConstructorUpdate = constructorUpdate;
+
+export abstract class KeepAliveDurableObject<Env> extends DurableObject<Env> {
+    constructor(readonly state: DurableObjectState, readonly env: Env) {
+        super(state, env);
+        constructorUpdate(this);
+    }
+}
+
+function constructorUpdate(instance: DurableObject<any>): void {
+    const oldFetch = instance.fetch;
+
+    const newFetch = async (request: Request): Promise<Response> => {
+        const keepAliveResponse = await keepAlive(instance["ctx"], request);
+        if(keepAliveResponse) {
+            return keepAliveResponse;
+        }
+        return oldFetch?.call(instance, request) ?? new Response("Not found", { status: 404 });
+    }
+    instance.fetch = newFetch;
+    instance.constructor.prototype.fetch = newFetch;
+
+    const oldWebSocketMessage = instance.webSocketMessage;
+    const newWebSocketMessage = async (ws: WebSocket, message: string) => {
+        if(message.startsWith("better-wait-until-ping ")) {
+            logDebug("Server-side received:", message);
+            ws.send("pong from server");
+            return;
+        } else {
+            return await oldWebSocketMessage?.call(instance, ws, message);
+        }
+    }
+    instance.webSocketMessage = newWebSocketMessage;
+    instance.constructor.prototype.webSocketMessage = newWebSocketMessage;
+
+    const oldWaitUntil = instance["ctx"].waitUntil;
+    const newWaitUntil = (promise: Promise<unknown>) => {
+        return oldWaitUntil?.call(instance, betterAwait(instance, promise));
+    }
+    instance["ctx"].waitUntil = newWaitUntil;
+}
+
+function keepAlive(state: DurableObjectState, request: Request): Response | null {
+    const url = new URL(request.url);
+    if(!url.pathname.startsWith(websocketPath) || request.headers.get("Upgrade") !== "websocket") {
+        return null;
+    }
+    try {
+        const [client, server] = Object.values(new WebSocketPair());
+        
+        // Accept the server side with hibernation
+        state.acceptWebSocket(server, ["keepalive"]);
+        
+        // Return the client side
+        return new Response(null, {
+        status: 101,
+        webSocket: client
+        });
+    
+    } catch (err) {
+        console.error("Error keeping agent awake", err);
+        return new Response("Error keeping agent awake", { status: 500 });
+    }
 }
 
 let _debugInitialized = false;
@@ -40,32 +114,83 @@ function initializeDebug(env?: { DEBUG?: string; BETTER_WAIT_UNTIL_DEBUG?: strin
  * 
  * @param promise - The promise to await
  * @param options - The options for the function
- * @param options.fetchOptions - The fetch options to use for the no-op fetch - use this for example to add headers to help you handle the no-op fetch
  * @param options.timeout - A date after which the retries will stop. To prevent the function from running forever in cases where the provided promise never resolves
  * @returns A promise that resolves when the input promise resolves
  */
-export function betterWaitUntil(durableObject: DurableObject, promise: Promise<unknown>, options: { fetchOptions?: Parameters<typeof fetch>[1]; timeout?: Date, logWarningAfter?: Date, logErrorAfter?: Date } = {}): void {
+function betterAwait(durableObject: DurableObject, promise: Promise<unknown>, options: { timeout?: Date, logWarningAfter?: Date, logErrorAfter?: Date } = {}): Promise<void> {
+
+    logDebug("promise received", { className: durableObject.constructor.name, options });
     initializeDebug(durableObject["env"]);
     const start = Date.now();
     const logWarningAt = (options.logWarningAfter?.getTime() ?? Date.now()) + 1000 * 60 * 15; // 15 minutes
     const logErrorAt = (options.logErrorAfter?.getTime() ?? Date.now()) + 1000 * 60 * 60; // 1 hour
 
-    const ctx = (durableObject as any).ctx;
-    const exportsNs = ctx?.exports;
+    // access private property haha!
+    const ctx = durableObject["ctx"];
+    
+    const exportsNs = (ctx as any).exports;
     if (!exportsNs) {
         throw new Error("No exports on DurableObject context. You must enable exports by adding the compatibility flag \"enable_ctx_exports\" (see https://developers.cloudflare.com/workers/configuration/compatibility-flags/).");
     }
     const className: string = (durableObject as any).constructor?.name ?? "";
-    const durableObjectNamespace = exportsNs[className];
+    const durableObjectNamespace = exportsNs[className] as DurableObjectNamespace;
     if (!durableObjectNamespace) {
         throw new Error(`No exports namespace for DurableObject class ${className}`);
     }
+
+    // Make a WebSocket connection to ourselves
+    const websocketPromise = new Promise<Response>((resolve, reject) => {
+        function generateWebSocketKey() {
+            const randomBytes = new Uint8Array(16);
+            crypto.getRandomValues(randomBytes);
+            return btoa(String.fromCharCode(...randomBytes));
+        }
+        const response = durableObjectNamespace.get(ctx.id).fetch(getKeepAliveUrl(className), {
+            headers: {
+                "Upgrade": "websocket",
+                "Connection": "Upgrade", 
+                "Sec-WebSocket-Key": generateWebSocketKey(),
+                "Sec-WebSocket-Version": "13",
+            }
+        }).then((response) => {
+            if (response.webSocket) {
+                response.webSocket.accept();
+                console.log("WebSocket accepted");
+                resolve(response);
+            } else {
+                console.error("WebSocket not accepted", response);
+                throw new Error("WebSocket not accepted");
+            }
+        }).catch((err) => {
+            console.error("Error accepting WebSocket", err);
+            reject(err);
+        });
+        return response;
+    });
+    // const existingAlarm = ctx.storage.getAlarm().then(async (alarm) => {
+    //     if (alarm) {
+    //         return alarm;
+    //     }
+    //     return await ctx.storage.setAlarm(new Date(Date.now() + 10 * 1000), {
+    //         allowConcurrency: true,
+    //         allowUnconfirmed: true,
+    //     });
+    // });
+    // ctx.waitUntil(existingAlarm.then(() => {
+    //     logDebug("alarm set", { now: Date.now() });
+    // }).catch((err) => {
+    //     logError("error setting alarm", err);
+    // }));
 
     let loggedWarning = false;
     let lastLoggedErrorAt = 0;
 
     let closureFlag = false;
-    promise.finally(() => closureFlag = true);
+    promise.finally(() => closureFlag = true).then(() => {
+        websocketPromise.then((response) => {
+            response.webSocket!.close();
+        });
+    });
     let count = 0;
     const intervalFinished = new Promise<void>((resolve) => {
         const interval = setInterval(async () => {
@@ -110,33 +235,22 @@ export function betterWaitUntil(durableObject: DurableObject, promise: Promise<u
                 }
 
                 // Cloudflare sometimes gets funky with Date.now outside of a request context so we record the iteration count as well
-                logDebug(`Background task has been running for ${Date.now() - start}ms (iteration ${count}), sending a no-op fetch to keep the agent awake`);
+                logDebug(`Background task has been running for ${Date.now() - start}ms (iteration ${count})`);
 
-                const response = await durableObjectNamespace
-                    .get(ctx.id)
-                    .fetch("http://self/stayAwakeNoOp?count=" + count, {
-                        // call options because this is the safest thing we can do to ensure we don't trigger any other logic
-                        method: "OPTIONS",
-                        ...options.fetchOptions,
-                    });
-                logDebug("no-op fetch response", { count, now: Date.now(), status: response.status });
-                // consume the body so it's not left hanging but don't do anything with it
-                await response.text();
-                logDebug("no-op fetch successful", { count, now: Date.now() });
+                const response = await websocketPromise;
+                response.webSocket!.send("better-wait-until-ping " + count);
             } catch (err) {
                 logError("Error keeping agent awake", err);
             }
-        }, 60000);
+        }, 10000);
 
-        // put promises on ctx.waitUntil because sometimes in local dev things that aren't awaited and aren't in a waitUntil don't get executed.    
-        ctx.waitUntil(promise.finally(() => {
-            clearInterval(interval);
-            logDebug("promise finally, clearing interval", { count, now: Date.now() });
-        }));
     });
 
-    // put promises on ctx.waitUntil because sometimes in local dev things that aren't awaited and aren't in a waitUntil don't get executed.
-    ctx.waitUntil(intervalFinished);
+    return intervalFinished;
+}
+
+export function betterWaitUntil(durableObject: DurableObject, promise: Promise<unknown>, options: { fetchOptions?: Parameters<typeof fetch>[1]; timeout?: Date, logWarningAfter?: Date, logErrorAfter?: Date } = {}): void {
+    void betterAwait(durableObject, promise, options);
 }
 
 // export under `waitUntil` for autocomplete

@@ -10,6 +10,16 @@
       "types": "./dist/index.d.ts",
       "bun": "./src/index.ts",
       "import": "./dist/index.js"
+    }, 
+    "./agents": {
+      "types": "./dist/agents.d.ts",
+      "bun": "./src/agents.ts",
+      "import": "./dist/agents.js"
+    },
+    "./containers": {
+      "types": "./dist/containers.d.ts",
+      "bun": "./src/containers.ts",
+      "import": "./dist/containers.js"
     }
   },
   "files": [
@@ -34,6 +44,8 @@
   },
   "dependencies": {
     "@cloudflare/workers-types": "^4.20251011.0",
+    "@cloudflare/containers": "^0.0.28",
+    "agents": "^0.2.13",
     "debug": "^4.4.3"
   }
 }
