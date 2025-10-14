@@ -2,9 +2,15 @@
 
 A utility for Cloudflare Workers Durable Objects that ensures long-running background tasks actually complete.
 
+Durable Objects gracelessly terminate background promises after 70-140s. When I say gracelessly I really mean it, finally blocks are not called, if you're lucky you may see "IoContext timed out due to inactivity, waitUntil tasks were cancelled without completing." in the logs, but you probably won't.
+
+YES! I know about waitUntil, this is what happens, even if you're using it.
+
+This library allows you to keep your Durable Object alive significantly longer (more than 30 minutes). Switching is very easy, change your DurableObject (or Agent or Container) classes to `extends KeepAliveDurableObject` / `extends KeepAliveContainer` / `extends KeepAliveAgent` and ctx.waitUntil is patched automatically for you. But before you do please read below to find out why it might not be a good idea to actually do this.
+
 ## TLDR;
 
-use Durable Object / Agent / Container classes from `better-wait-until` (or `better-wait-until/containers`, `better-wait-until/agents`). These will patch `ctx.waitUntil` to use our "better" keep-alive mechanism that keeps durable objects alive while your promise is running (as much as it is possible to do so).
+use Durable Object classes from `better-wait-until` (or `better-wait-until/containers`, `better-wait-until/agents`). These will patch `ctx.waitUntil` to use "better" keep-alive mechanism that keeps durable objects alive almost-indefinitely while your promise is running (as much as it is possible to do so).
 
 Install the package:
 
