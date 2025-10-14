@@ -1,0 +1,36 @@
+{
+  "name": "better-wait-until",
+  "version": "0.1.0",
+  "description": "A better waitUntil utility for Cloudflare Workers",
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "bun": "./src/index.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist",
+    "src"
+  ],
+  "scripts": {
+    "build": "tsc",
+    "prepublishOnly": "npm run build"
+  },
+  "keywords": [
+    "cloudflare",
+    "workers",
+    "waitUntil",
+    "promise"
+  ],
+  "author": "",
+  "license": "MIT",
+  "devDependencies": {
+    "@cloudflare/workers-types": "^4.20241011.0",
+    "typescript": "^5.6.3"
+  }
+}
+
