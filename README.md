@@ -26,6 +26,7 @@ You **must** enable the `enable_ctx_exports` compatibility flag in your `wrangle
     "enable_ctx_exports"
   ]
 }
+```
 
 Replace `extends DurableObject` / `extends Agent` / `extends Container` in your class declaration with the corresponding "KeepAlive" class from `better-wait-until` / `better-wait-until/containers` / `better-wait-until/agents`:
 
