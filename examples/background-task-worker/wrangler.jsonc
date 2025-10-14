@@ -1,0 +1,62 @@
+{
+	// Example Durable Object Worker for testing long-running tasks
+	"name": "background-task-worker",
+	"main": "src/index.ts",
+	"compatibility_date": "2025-10-14",
+	"compatibility_flags": [
+		"enable_ctx_exports"
+	],
+	"rules": [
+		{
+			"type": "Text",
+			"globs": [
+				"**/*.html"
+			],
+			"fallthrough": true
+		}
+	],
+	"vars": {
+		"DEBUG": "better-wait-until*"
+	},
+	"observability": {
+		"logs": {
+			"enabled": true,
+			"head_sampling_rate": 1,
+			"invocation_logs": true
+		}
+	},
+	"d1_databases": [
+		{
+			"binding": "DB",
+			"database_name": "background-task-worker",
+			"migrations_dir": "migrations",
+			"database_id": "aae1e11f-3522-40be-8e8c-eb22e9979105"
+		}
+	],
+	"durable_objects": {
+		"bindings": [
+			{
+				"name": "BACKGROUND_TASK",
+				"class_name": "BackgroundTaskDO"
+			},
+			{
+				"name": "BUILTIN_TASK",
+				"class_name": "BuiltinWaitUntilDO"
+			}
+		]
+	},
+	"migrations": [
+		{
+			"tag": "v1",
+			"new_classes": [
+				"BackgroundTaskDO"
+			]
+		},
+		{
+			"tag": "v2",
+			"new_classes": [
+				"BuiltinWaitUntilDO"
+			]
+		}
+	]
+}

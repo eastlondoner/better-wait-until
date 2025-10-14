@@ -1,0 +1,20 @@
+{
+  "name": "background-task-worker",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "wrangler d1 migrations apply background-task-worker --local && wrangler dev",
+    "deploy": "wrangler d1 migrations apply background-task-worker --remote && wrangler deploy"
+  },
+  "dependencies": {
+    "better-wait-until": "file:../.."
+  },
+  "devDependencies": {
+    "@cloudflare/workers-types": "^4.20241011.0",
+    "typescript": "^5.6.3",
+    "wrangler": "^4.42.0"
+  }
+}
+
+

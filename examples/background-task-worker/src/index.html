@@ -1,0 +1,539 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Background Task Comparison</title>
+  <style>
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+    
+    body {
+      font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      min-height: 100vh;
+      padding: 40px 20px;
+    }
+    
+    .container {
+      max-width: 1000px;
+      margin: 0 auto;
+    }
+    
+    h1 {
+      color: white;
+      text-align: center;
+      font-size: 2.5rem;
+      margin-bottom: 12px;
+      font-weight: 700;
+    }
+    
+    .subtitle {
+      color: rgba(255, 255, 255, 0.9);
+      text-align: center;
+      margin-bottom: 40px;
+      font-size: 1.1rem;
+    }
+    
+    .card {
+      background: white;
+      border-radius: 16px;
+      padding: 32px;
+      box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+      margin-bottom: 24px;
+    }
+    
+    .form-group {
+      margin-bottom: 24px;
+    }
+    
+    label {
+      display: block;
+      font-weight: 600;
+      margin-bottom: 8px;
+      color: #374151;
+      font-size: 0.95rem;
+    }
+    
+    input {
+      width: 100%;
+      padding: 12px 16px;
+      font-size: 16px;
+      border: 2px solid #e5e7eb;
+      border-radius: 8px;
+      transition: border-color 0.2s;
+    }
+    
+    input:focus {
+      outline: none;
+      border-color: #667eea;
+    }
+    
+    button {
+      width: 100%;
+      padding: 14px 24px;
+      font-size: 16px;
+      font-weight: 600;
+      color: white;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      border: none;
+      border-radius: 8px;
+      cursor: pointer;
+      transition: transform 0.2s, box-shadow 0.2s;
+    }
+    
+    button:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 8px 20px rgba(102, 126, 234, 0.4);
+    }
+    
+    button:active {
+      transform: translateY(0);
+    }
+    
+    .message {
+      text-align: center;
+      padding: 16px;
+      margin-bottom: 24px;
+      border-radius: 8px;
+      font-weight: 500;
+      display: none;
+    }
+    
+    .message.show {
+      display: block;
+    }
+    
+    .message.info {
+      background: #dbeafe;
+      color: #1e40af;
+    }
+    
+    .message.success {
+      background: #d1fae5;
+      color: #065f46;
+    }
+    
+    .message.error {
+      background: #fee2e2;
+      color: #991b1b;
+    }
+    
+    h2 {
+      color: #111827;
+      font-size: 1.75rem;
+      margin-bottom: 24px;
+      text-align: center;
+      font-weight: 700;
+    }
+    
+    .comparison {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 24px;
+      margin-bottom: 24px;
+    }
+    
+    @media (max-width: 768px) {
+      .comparison {
+        grid-template-columns: 1fr;
+      }
+    }
+    
+    .task-card {
+      background: #f9fafb;
+      border-radius: 12px;
+      padding: 24px;
+      border: 2px solid #e5e7eb;
+      transition: border-color 0.3s, box-shadow 0.3s;
+    }
+    
+    .task-card.finished {
+      border-color: #10b981;
+      background: #ecfdf5;
+    }
+    
+    .task-card.unknown {
+      border-color: #f59e0b;
+      background: #fffbeb;
+    }
+    
+    .task-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 20px;
+      padding-bottom: 16px;
+      border-bottom: 2px solid rgba(0, 0, 0, 0.05);
+    }
+    
+    .task-title {
+      font-size: 1.25rem;
+      font-weight: 700;
+      color: #111827;
+    }
+    
+    .status-badge {
+      padding: 6px 14px;
+      border-radius: 20px;
+      font-size: 0.85rem;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+    
+    .status-badge.finished {
+      background: #10b981;
+      color: white;
+    }
+    
+    .status-badge.unknown {
+      background: #f59e0b;
+      color: white;
+    }
+    
+    .task-stats {
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+    }
+    
+    .stat {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    
+    .stat-label {
+      font-size: 0.9rem;
+      color: #6b7280;
+      font-weight: 500;
+    }
+    
+    .stat-value {
+      font-size: 1.5rem;
+      font-weight: 700;
+      color: #111827;
+    }
+    
+    .stat-value.highlight {
+      color: #667eea;
+    }
+    
+    .no-data {
+      text-align: center;
+      padding: 40px;
+      color: #9ca3af;
+      font-size: 1.1rem;
+    }
+    
+    .loading {
+      text-align: center;
+      padding: 20px;
+      color: #667eea;
+      font-size: 1rem;
+      font-weight: 500;
+    }
+    
+    .monitor-status {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 12px;
+      padding: 12px;
+      background: #f3f4f6;
+      border-radius: 8px;
+      margin-bottom: 16px;
+      font-size: 0.9rem;
+      color: #6b7280;
+    }
+    
+    .spinner {
+      width: 20px;
+      height: 20px;
+      border: 3px solid #e5e7eb;
+      border-top-color: #667eea;
+      border-radius: 50%;
+      transition: transform 0.3s ease-out;
+    }
+    
+    .spinner.spin {
+      animation: spin 0.6s ease-out;
+    }
+    
+    @keyframes spin {
+      from { transform: rotate(0deg); }
+      to { transform: rotate(360deg); }
+    }
+    
+    .status-dot {
+      width: 8px;
+      height: 8px;
+      background: #10b981;
+      border-radius: 50%;
+      animation: pulse 2s ease-in-out infinite;
+    }
+    
+    @keyframes pulse {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.5; }
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>⚡ Background Task Comparison</h1>
+    <p class="subtitle">Compare better-wait-until vs. built-in waitUntil</p>
+    
+    <div class="card">
+      <form id="taskForm">
+        <div class="form-group">
+          <label for="durationSeconds">Task Duration (seconds)</label>
+          <input type="number" id="durationSeconds" name="durationSeconds" min="0" step="1" value="10" required />
+        </div>
+        <button type="submit">Start Comparison</button>
+      </form>
+    </div>
+    
+    <div id="message" class="message"></div>
+    
+    <div class="card">
+      <h2>Latest Task Results</h2>
+      <div class="monitor-status">
+        <div class="status-dot"></div>
+        <div class="spinner" id="pollSpinner"></div>
+        <span id="pollStatus">Monitoring active (polling every 5s)</span>
+      </div>
+      <div id="results"></div>
+    </div>
+  </div>
+  
+  <script>
+    const form = document.getElementById('taskForm');
+    const resultsDiv = document.getElementById('results');
+    const messageDiv = document.getElementById('message');
+    const pollSpinner = document.getElementById('pollSpinner');
+    const pollStatus = document.getElementById('pollStatus');
+    
+    let lastData = { better: null, builtin: null };
+    let lastPollTime = null;
+    const POLL_INTERVAL_MS = 5000;
+    const POLL_INTERVAL_SECONDS = POLL_INTERVAL_MS / 1000;
+
+    function showMessage(text, type = 'info') {
+      messageDiv.textContent = text;
+      messageDiv.className = `message show ${type}`;
+    }
+
+    function hideMessage() {
+      messageDiv.className = 'message';
+    }
+
+    function formatDuration(ms) {
+      if (!ms && ms !== 0) return 'N/A';
+      if (ms < 1000) return `${ms}ms`;
+      if (ms < 60000) return `${(ms / 1000).toFixed(2)}s`;
+      const minutes = Math.floor(ms / 60000);
+      const seconds = ((ms % 60000) / 1000).toFixed(0);
+      return `${minutes}m ${seconds}s`;
+    }
+
+    function createTaskCard(type) {
+      const displayName = type === 'better-wait-until' ? 'Better Wait Until' : 'Built-in waitUntil';
+      const cardId = type === 'better-wait-until' ? 'better-card' : 'builtin-card';
+      
+      return `
+        <div class="task-card unknown" id="${cardId}">
+          <div class="task-header">
+            <div class="task-title">${displayName}</div>
+            <div class="status-badge unknown" data-status>unknown</div>
+          </div>
+          <div class="task-stats">
+            <div class="stat">
+              <span class="stat-label">Scheduled Duration</span>
+              <span class="stat-value" data-scheduled>N/A</span>
+            </div>
+            <div class="stat">
+              <span class="stat-label">Actual Time Elapsed</span>
+              <span class="stat-value highlight" data-elapsed>N/A</span>
+            </div>
+          </div>
+        </div>
+      `;
+    }
+
+    function initializeUI() {
+      resultsDiv.innerHTML = `
+        <div class="comparison">
+          ${createTaskCard('better-wait-until')}
+          ${createTaskCard('builtin-wait-until')}
+        </div>
+      `;
+    }
+
+    function updateTaskCard(cardId, taskData) {
+      const card = document.getElementById(cardId);
+      if (!card) return;
+      
+      const isFinished = taskData && taskData.end_time_ms !== null;
+      const status = isFinished ? 'finished' : 'unknown';
+      const elapsed = taskData?.elapsed_ms ?? null;
+      const scheduled = taskData?.scheduled_duration_ms ?? null;
+      
+      // Only update if status changed
+      const statusBadge = card.querySelector('[data-status]');
+      if (statusBadge && statusBadge.textContent !== status) {
+        statusBadge.textContent = status;
+        statusBadge.className = `status-badge ${status}`;
+        card.className = `task-card ${status}`;
+      }
+      
+      // Only update if scheduled duration changed
+      const scheduledEl = card.querySelector('[data-scheduled]');
+      const scheduledText = scheduled !== null ? formatDuration(scheduled) : 'N/A';
+      if (scheduledEl && scheduledEl.textContent !== scheduledText) {
+        scheduledEl.textContent = scheduledText;
+      }
+      
+      // Only update if elapsed time changed
+      const elapsedEl = card.querySelector('[data-elapsed]');
+      const elapsedText = elapsed !== null ? formatDuration(elapsed) : 'N/A';
+      if (elapsedEl && elapsedEl.textContent !== elapsedText) {
+        elapsedEl.textContent = elapsedText;
+      }
+    }
+
+    function animatePoll() {
+      // Trigger spin animation
+      pollSpinner.classList.remove('spin');
+      void pollSpinner.offsetWidth; // Force reflow
+      pollSpinner.classList.add('spin');
+      
+      // Update status text
+      lastPollTime = Date.now();
+      pollStatus.textContent = `Monitoring active (polling every ${POLL_INTERVAL_SECONDS}s)`;
+    }
+
+    async function fetchStatus() {
+      animatePoll();
+      const res = await fetch('/status');
+      return await res.json();
+    }
+
+    async function renderResults() {
+      const data = await fetchStatus();
+      const latest = data?.latestByType ?? {};
+      
+      const betterTask = latest['better-wait-until'] ?? null;
+      const builtinTask = latest['builtin-wait-until'] ?? null;
+      
+      // Initialize UI if needed
+      if (!document.getElementById('better-card')) {
+        initializeUI();
+      }
+      
+      // Only update cards if data changed
+      if (JSON.stringify(betterTask) !== JSON.stringify(lastData.better)) {
+        updateTaskCard('better-card', betterTask);
+        lastData.better = betterTask;
+      }
+      
+      if (JSON.stringify(builtinTask) !== JSON.stringify(lastData.builtin)) {
+        updateTaskCard('builtin-card', builtinTask);
+        lastData.builtin = builtinTask;
+      }
+    }
+
+    async function pollUntilChange(prevTimes, maxMs = 180000) {
+      const start = Date.now();
+      while (Date.now() - start < maxMs) {
+        const json = await fetchStatus();
+        const latest = json?.latestByType ?? {};
+        const newTimes = {
+          better: latest['better-wait-until']?.end_time_ms ?? null,
+          builtin: latest['builtin-wait-until']?.end_time_ms ?? null,
+        };
+
+        if (
+          (newTimes.better && newTimes.better !== prevTimes.better) &&
+          (newTimes.builtin && newTimes.builtin !== prevTimes.builtin)
+        ) {
+          return json;
+        }
+        await new Promise(r => setTimeout(r, 2000));
+      }
+      return null;
+    }
+
+    form.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const durationSeconds = Number(document.getElementById('durationSeconds').value);
+      const durationMs = durationSeconds * 1000;
+      
+      showMessage('Starting both tasks...', 'info');
+      
+      const before = await fetchStatus();
+      const prev = {
+        better: before?.latestByType?.['better-wait-until']?.end_time_ms ?? null,
+        builtin: before?.latestByType?.['builtin-wait-until']?.end_time_ms ?? null,
+      };
+
+      try {
+        const [betterRes, builtinRes] = await Promise.all([
+          fetch('/start?durationMs=' + durationMs),
+          fetch('/startbuiltin?durationMs=' + durationMs)
+        ]);
+
+        if (betterRes.status !== 202) {
+          showMessage('Failed to start better-wait-until task: ' + (await betterRes.text()), 'error');
+          return;
+        }
+        if (builtinRes.status !== 202) {
+          showMessage('Failed to start built-in waitUntil task: ' + (await builtinRes.text()), 'error');
+          return;
+        }
+
+        showMessage(`Tasks started! Waiting for completion (scheduled: ${formatDuration(durationMs)})...`, 'info');
+        
+        // Immediately show the tasks as running
+        await renderResults();
+        
+        const done = await pollUntilChange(prev);
+        
+        if (done) {
+          const latest = done.latestByType;
+          const betterEnd = latest['better-wait-until']?.end_time_ms;
+          const builtinEnd = latest['builtin-wait-until']?.end_time_ms;
+          
+          await renderResults();
+          
+          if (betterEnd && builtinEnd) {
+            showMessage('✅ Both tasks completed successfully!', 'success');
+          } else if (betterEnd && !builtinEnd) {
+            showMessage('⚠️ better-wait-until finished, but built-in waitUntil did not complete before timeout.', 'error');
+          } else if (!betterEnd && builtinEnd) {
+            showMessage('⚠️ Built-in waitUntil finished, but better-wait-until did not complete (unexpected).', 'error');
+          } else {
+            showMessage('❌ Neither task recorded completion.', 'error');
+          }
+        } else {
+          showMessage('⏱️ Timed out waiting for completion (3 minutes).', 'error');
+          await renderResults();
+        }
+      } catch (err) {
+        showMessage('Error: ' + err.message, 'error');
+      }
+    });
+
+    // Initial load
+    renderResults();
+    
+    // Auto-refresh every 5 seconds
+    setInterval(renderResults, 5000);
+  </script>
+</body>
+</html>
+
