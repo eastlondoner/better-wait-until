@@ -6,11 +6,11 @@ Durable Objects gracelessly terminate background promises after 70-140s. When I 
 
 YES! I know about waitUntil, this is what happens, even if you're using it.
 
-This library allows you to keep your Durable Object alive significantly longer (more than 30 minutes). Switching is very easy, change your DurableObject (or Agent or Container) classes to `extends KeepAliveDurableObject` / `extends KeepAliveContainer` / `extends KeepAliveAgent` and ctx.waitUntil is patched automatically for you. But before you do please read below to find out why it might not be a good idea to actually do this.
+This library allows you to keep your Durable Object alive significantly longer (more than 30 minutes). Switching is very easy, change your DurableObject (or Agent or Container or Sandbox) classes to `extends KeepAliveDurableObject` / `extends KeepAliveContainer` / `extends KeepAliveAgent` / `extends KeepAliveSandbox` and `ctx.waitUntil` is patched automatically for you. But before you do please read below to find out why it might not be a good idea to actually do this.
 
 ## TLDR;
 
-use Durable Object classes from `better-wait-until` (or `better-wait-until/containers`, `better-wait-until/agents`). These will patch `ctx.waitUntil` to use "better" keep-alive mechanism that keeps durable objects alive almost-indefinitely while your promise is running (as much as it is possible to do so).
+use Durable Object classes from `better-wait-until` (or `better-wait-until/containers`, `better-wait-until/agents` or `better-wait-until/sandbox`). These will patch `ctx.waitUntil` to use "better" keep-alive mechanism that keeps durable objects alive almost-indefinitely while your promise is running (as much as it is possible to do so).
 
 Install the package:
 
@@ -28,12 +28,13 @@ You **must** enable the `enable_ctx_exports` compatibility flag in your `wrangle
 }
 ```
 
-Replace `extends DurableObject` / `extends Agent` / `extends Container` in your class declaration with the corresponding "KeepAlive" class from `better-wait-until` / `better-wait-until/containers` / `better-wait-until/agents`:
+Replace `extends DurableObject` / `extends Agent` / `extends Container` / `extends Sandbox` in your class declaration with the corresponding "KeepAlive" class from `better-wait-until` / `better-wait-until/containers` / `better-wait-until/agents` / `better-wait-until/sandbox`:
 
 ```typescript
 import { KeepAliveDurableObject } from "better-wait-until";
 // or import { KeepAliveContainer } from "better-wait-until/containers";
 // or import { KeepAliveAgent } from "better-wait-until/agents";
+// or import { KeepAliveSandbox } from "better-wait-until/sandbox";
 
 export class MyDurableObject extends KeepAliveDurableObject<Env> {
   async fetch(request: Request): Promise<Response> {

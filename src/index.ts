@@ -14,15 +14,11 @@ export function disableDebug(): void {
     createDebug.disable();
 }
 
-
 const WEBSOCKET_ENDPOINT = new URL("https://fake/better-wait-until/websocket");
 const websocketPath = WEBSOCKET_ENDPOINT.pathname;
 function getKeepAliveUrl(className: string): URL {
     return new URL(WEBSOCKET_ENDPOINT.toString() + `?className=${className}`);
 }
-
-// Store constructorUpdate in global scope for use by separate modules
-(globalThis as any).__betterWaitUntilConstructorUpdate = constructorUpdate;
 
 export abstract class KeepAliveDurableObject<Env> extends DurableObject<Env> {
     constructor(readonly state: DurableObjectState, readonly env: Env) {
@@ -31,7 +27,7 @@ export abstract class KeepAliveDurableObject<Env> extends DurableObject<Env> {
     }
 }
 
-function constructorUpdate(instance: DurableObject<any>): void {
+export function constructorUpdate(instance: DurableObject<any>): void {
     const oldFetch = instance.fetch;
 
     const newFetch = async (request: Request): Promise<Response> => {
