@@ -1,7 +1,7 @@
 {
   "name": "better-wait-until",
-  "version": "0.1.0",
-  "description": "A better waitUntil utility for Cloudflare Workers",
+  "version": "0.0.1",
+  "description": "A better waitUntil utility for Cloudflare Durable Objects",
   "type": "module",
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
@@ -24,7 +24,9 @@
   },
   "files": [
     "dist",
-    "src"
+    "src",
+    "README.md",
+    "package.json"
   ],
   "scripts": {
     "build": "tsc",
@@ -33,6 +35,9 @@
   "keywords": [
     "cloudflare",
     "workers",
+    "durable objects",
+    "agents",
+    "containers",
     "waitUntil",
     "promise"
   ],
