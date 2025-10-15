@@ -55,8 +55,9 @@ export function constructorUpdate(instance: DurableObject<any>): void {
 
     const oldWaitUntil = instance["ctx"].waitUntil;
     const newWaitUntil = (promise: Promise<unknown>) => {
-        return oldWaitUntil?.call(instance, betterAwait(instance, promise));
+        return oldWaitUntil?.call(instance["ctx"], betterAwait(instance, promise));
     }
+    
     instance["ctx"].waitUntil = newWaitUntil;
 }
 
@@ -78,7 +79,7 @@ function keepAlive(state: DurableObjectState, request: Request): Response | null
         });
     
     } catch (err) {
-        console.error("Error keeping agent awake", err);
+        logError("Error keeping agent awake", err);
         return new Response("Error keeping agent awake", { status: 500 });
     }
 }
@@ -151,14 +152,14 @@ function betterAwait(durableObject: DurableObject, promise: Promise<unknown>, op
         }).then((response) => {
             if (response.webSocket) {
                 response.webSocket.accept();
-                console.log("WebSocket accepted");
+                logDebug("WebSocket accepted");
                 resolve(response);
             } else {
-                console.error("WebSocket not accepted", response);
+                logError("WebSocket not accepted", response);
                 throw new Error("WebSocket not accepted");
             }
         }).catch((err) => {
-            console.error("Error accepting WebSocket", err);
+            logError("Error accepting WebSocket", err);
             reject(err);
         });
         return response;
