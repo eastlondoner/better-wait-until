@@ -6,11 +6,9 @@ Durable Objects gracelessly terminate background promises after 70-140s. When I 
 
 YES! I know about waitUntil, this is what happens, even if you're using it.
 
-This library allows you to keep your Durable Object alive significantly longer (more than 30 minutes). Switching is very easy, change your DurableObject (or Agent or Container or Sandbox) classes to `extends KeepAliveDurableObject` / `extends KeepAliveContainer` / `extends KeepAliveAgent` / `extends KeepAliveSandbox` and `ctx.waitUntil` is patched automatically for you. But before you do please read below to find out why it might not be a good idea to actually do this.
+This library allows you to keep your Durable Object alive significantly longer (more than 30 minutes). Switching is very easy, use the better-wait-until classes as drop in replacements for `DurableObject`, `Sandbox`, `Container`, `Agent` or `AIChatAgent` and `ctx.waitUntil` is patched automatically for you. If you want to get going then read the TLDR section but I recommend you read all the way through to find out why it might not be a good idea to actually do this.
 
 ## TLDR;
-
-use Durable Object classes from `better-wait-until` (or `better-wait-until/containers`, `better-wait-until/agents` or `better-wait-until/sandbox`). These will patch `ctx.waitUntil` to use "better" keep-alive mechanism that keeps durable objects alive almost-indefinitely while your promise is running (as much as it is possible to do so).
 
 Install the package:
 
@@ -37,10 +35,14 @@ import { KeepAliveDurableObject } from "better-wait-until";
 // or import { KeepAliveSandbox } from "better-wait-until/sandbox";
 
 export class MyDurableObject extends KeepAliveDurableObject<Env> {
+// export class MyAgent extends KeepAliveAgent<Env> {
+// export class MyContainer extends KeepAliveContainer<Env> {
+// export class MySandbox extends KeepAliveSandbox<Env>
+
   async fetch(request: Request): Promise<Response> {
-    const backgroundTask = this.longRunningTask();
-    this.ctx.waitUntil(backgroundTask);
-    return new Response("Task started", { status: 202 });
+    const backgroundTask = this.longRunningTask(); // no await so returns a Promise
+    this.ctx.waitUntil(backgroundTask); // returns void - non-blocking call to keep DO alive and running until backgroundTask promise resolves
+    return new Response("Task started", { status: 202 }); // immediate return to the caller, closing the network connection
   }
 }
 ```
@@ -50,6 +52,7 @@ export class MyDurableObject extends KeepAliveDurableObject<Env> {
 Cloudflare Durable Objects have a critical limitation: **promises passed to `ctx.waitUntil()` can be terminated 70-140s (or less) after the last incoming network request (or RPC) has finished**. This means if you have background tasks that take longer than 2 minutes to complete, they may be killed before finishing, even when using the built-in `waitUntil()` method.
 
 This is problematic for use cases like:
+- Background AI agents espescially multi-turn agents with tool calls
 - Long-running data processing tasks
 - Batch operations that take several minutes
 - Background jobs that involve multiple API calls or database operations
