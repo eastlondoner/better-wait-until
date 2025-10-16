@@ -1,8 +1,11 @@
 /// <reference types="@cloudflare/workers-types" />
-import { Agent, type AgentContext } from "agents";
+import { Agent, Connection, ConnectionContext, type AgentContext } from "agents";
 import { AIChatAgent } from "agents/ai-chat-agent";
 import { constructorUpdate } from "./index";
 import type{ env } from "cloudflare:workers";
+import { logDebug, logError } from "./debug";
+
+export { enableDebug, disableDebug } from "./debug";
 
 function agentsConstructorUpdate(instance: Agent<any, any>): void {
     const oldBroadcast = instance.broadcast;
@@ -10,7 +13,7 @@ function agentsConstructorUpdate(instance: Agent<any, any>): void {
         without = without ?? [];
         for (const connection of instance.getConnections()) {
             if (connection.url?.includes("better-wait-until/websocket")) {
-                console.log("Skipping keep-alive connection", connection);
+                logDebug("Skipping keep-alive connection", connection);
                 without.push(connection.id);
             }
         }
@@ -30,6 +33,14 @@ export abstract class KeepAliveAgent<
         constructorUpdate(this, { usePartykitCompatibleMode: true });
         agentsConstructorUpdate(this);
     }
+
+    onConnect(connection: Connection, ctx: ConnectionContext) {
+        if(connection.url?.includes("better-wait-until/websocket")) {
+            logDebug("Skipping keep-alive connection");
+            return;
+        }
+        super.onConnect(connection, ctx);
+    }
 }
 
 export abstract class KeepAliveChatAgent<Env = unknown, State = unknown> extends AIChatAgent<Env, State> {
@@ -37,5 +48,13 @@ export abstract class KeepAliveChatAgent<Env = unknown, State = unknown> extends
         super(ctx, env);
         constructorUpdate(this, { usePartykitCompatibleMode: true });
         agentsConstructorUpdate(this);
+    }
+
+    onConnect(connection: Connection, ctx: ConnectionContext) {
+        if(connection.url?.includes("better-wait-until/websocket")) {
+            logDebug("On connect skip keep-alive connection");
+            return;
+        }
+        super.onConnect(connection, ctx);
     }
 }

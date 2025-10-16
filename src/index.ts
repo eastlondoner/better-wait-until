@@ -1,18 +1,7 @@
 /// <reference types="@cloudflare/workers-types" />
 import { DurableObject } from "cloudflare:workers";
+import { initializeDebug, logDebug, logError } from "./debug";
 
-import createDebug from "debug";
-
-const logDebug = createDebug("better-wait-until");
-const logError = createDebug("better-wait-until:error");
-
-export function enableDebug(namespaces?: string): void {
-    createDebug.enable(namespaces ?? "better-wait-until*");
-}
-
-export function disableDebug(): void {
-    createDebug.disable();
-}
 
 const WEBSOCKET_ENDPOINT = new URL("https://fake/better-wait-until/websocket");
 const websocketPath = WEBSOCKET_ENDPOINT.pathname;
@@ -98,22 +87,6 @@ function acceptKeepAliveWebSocket(state: DurableObjectState, request: Request, o
     }
 }
 
-let _debugInitialized = false;
-function initializeDebug(env?: { DEBUG?: string; BETTER_WAIT_UNTIL_DEBUG?: string | boolean }): void {
-    try {
-        if (_debugInitialized) return;
-        if (!env) return;
-        if (env.BETTER_WAIT_UNTIL_DEBUG === true || env.BETTER_WAIT_UNTIL_DEBUG === "1") {
-            createDebug.enable("better-wait-until*");
-            return;
-        }
-        if (typeof env.DEBUG === "string" && env.DEBUG.length > 0) {
-            createDebug.enable(env.DEBUG);
-        }
-    } finally {
-        _debugInitialized = true;
-    }
-}
 
 /**
  * Actually wait until a promise resolves.
@@ -130,8 +103,9 @@ function initializeDebug(env?: { DEBUG?: string; BETTER_WAIT_UNTIL_DEBUG?: strin
  */
 function betterAwait(durableObject: DurableObject, promise: Promise<unknown>, options: { timeout?: Date, logWarningAfter?: Date, logErrorAfter?: Date } = {}): Promise<void> {
 
-    logDebug("promise received", { className: durableObject.constructor.name, options });
     initializeDebug(durableObject["env"]);
+
+    logDebug("promise received", { className: durableObject.constructor.name, options });
     const start = Date.now();
     const logWarningAt = (options.logWarningAfter?.getTime() ?? Date.now()) + 1000 * 60 * 15; // 15 minutes
     const logErrorAt = (options.logErrorAfter?.getTime() ?? Date.now()) + 1000 * 60 * 60; // 1 hour

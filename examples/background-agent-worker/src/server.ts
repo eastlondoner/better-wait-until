@@ -2,7 +2,8 @@ import { routeAgentRequest, type Schedule } from "agents";
 
 import { getSchedulePrompt } from "agents/schedule";
 
-import { AIChatAgent } from "agents/ai-chat-agent";
+// replace AIChatAgent with KeepAliveChatAgent
+// import { AIChatAgent } from "agents/ai-chat-agent";
 import { KeepAliveChatAgent } from "better-wait-until/agents";
 import {
   generateId,
