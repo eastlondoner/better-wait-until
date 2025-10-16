@@ -27,11 +27,15 @@ export abstract class KeepAliveDurableObject<Env> extends DurableObject<Env> {
     }
 }
 
-export function constructorUpdate(instance: DurableObject<any>): void {
+export type ConstructorUpdateOptions = {
+    usePartykitCompatibleMode: boolean;
+}
+
+export function constructorUpdate(instance: DurableObject<any>, options: ConstructorUpdateOptions = { usePartykitCompatibleMode: false }): void {
     const oldFetch = instance.fetch;
 
     const newFetch = async (request: Request): Promise<Response> => {
-        const keepAliveResponse = await keepAlive(instance["ctx"], request);
+        const keepAliveResponse = await acceptKeepAliveWebSocket(instance["ctx"], request, options);
         if(keepAliveResponse) {
             return keepAliveResponse;
         }
@@ -61,7 +65,7 @@ export function constructorUpdate(instance: DurableObject<any>): void {
     instance["ctx"].waitUntil = newWaitUntil;
 }
 
-function keepAlive(state: DurableObjectState, request: Request): Response | null {
+function acceptKeepAliveWebSocket(state: DurableObjectState, request: Request, options: ConstructorUpdateOptions): Response | null {
     const url = new URL(request.url);
     if(!url.pathname.startsWith(websocketPath) || request.headers.get("Upgrade") !== "websocket") {
         return null;
@@ -71,6 +75,16 @@ function keepAlive(state: DurableObjectState, request: Request): Response | null
         
         // Accept the server side with hibernation
         state.acceptWebSocket(server, ["keepalive"]);
+        if(options.usePartykitCompatibleMode) {
+            // Add fake attachment to the server side to keep PartyKit from freaking out
+            server.serializeAttachment({
+                __pk: {
+                  id: -1,
+                  uri: request.url
+                },
+                __user: null
+            });
+        }
         
         // Return the client side
         return new Response(null, {
