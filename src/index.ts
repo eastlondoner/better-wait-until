@@ -31,7 +31,7 @@ export function constructorUpdate(instance: DurableObject<any>, options: Constru
         return oldFetch?.call(instance, request) ?? new Response("Not found", { status: 404 });
     }
     instance.fetch = newFetch;
-    instance.constructor.prototype.fetch = newFetch;
+    Object.getPrototypeOf(instance).fetch = newFetch;
 
     const oldWebSocketMessage = instance.webSocketMessage;
     const newWebSocketMessage = async (ws: WebSocket, message: string) => {
@@ -44,7 +44,7 @@ export function constructorUpdate(instance: DurableObject<any>, options: Constru
         }
     }
     instance.webSocketMessage = newWebSocketMessage;
-    instance.constructor.prototype.webSocketMessage = newWebSocketMessage;
+    Object.getPrototypeOf(instance).webSocketMessage = newWebSocketMessage;
 
     const oldWaitUntil = instance["ctx"].waitUntil;
     const newWaitUntil = (promise: Promise<unknown>) => {
@@ -105,7 +105,7 @@ function betterAwait(durableObject: DurableObject, promise: Promise<unknown>, op
 
     initializeDebug(durableObject["env"]);
 
-    logDebug("promise received", { className: durableObject.constructor.name, options });
+    logDebug("promise received", { className: durableObject.constructor?.name ?? "", options });
     const start = Date.now();
     const logWarningAt = (options.logWarningAfter?.getTime() ?? Date.now()) + 1000 * 60 * 15; // 15 minutes
     const logErrorAt = (options.logErrorAfter?.getTime() ?? Date.now()) + 1000 * 60 * 60; // 1 hour
@@ -117,7 +117,7 @@ function betterAwait(durableObject: DurableObject, promise: Promise<unknown>, op
     if (!exportsNs) {
         throw new Error("No exports on DurableObject context. You must enable exports by adding the compatibility flag \"enable_ctx_exports\" (see https://developers.cloudflare.com/workers/configuration/compatibility-flags/).");
     }
-    const className: string = (durableObject as any).constructor?.name ?? "";
+    const className: string = durableObject.constructor?.name ?? "";
     const durableObjectNamespace = exportsNs[className] as DurableObjectNamespace;
     if (!durableObjectNamespace) {
         throw new Error(`No exports namespace for DurableObject class ${className}`);

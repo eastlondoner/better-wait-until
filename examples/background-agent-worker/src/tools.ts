@@ -17,6 +17,20 @@ const getWeatherInformation = tool({
   description: "show the weather in a given city to the user",
   inputSchema: z.object({ city: z.string() })
   // Omitting execute function makes this tool require human confirmation
+  // execute funtion is added in the executions object
+});
+
+/**
+ * Travel information tool that requires human confirmation
+ * This does NOT require human confirmation because it has an execute function
+ */
+const getTravelInformation = tool({
+  description: "show the travel information for a given destination",
+  inputSchema: z.object({ destination: z.string() }),
+  execute: async ({ destination }) => {
+    console.log(`Getting travel information for ${destination}`);
+    return `It's busy in ${destination} right now.`;
+  }
 });
 
 /**
@@ -114,6 +128,7 @@ const cancelScheduledTask = tool({
  */
 export const tools = {
   getWeatherInformation,
+  getTravelInformation,
   getLocalTime,
   scheduleTask,
   getScheduledTasks,

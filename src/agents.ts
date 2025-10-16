@@ -20,7 +20,7 @@ function agentsConstructorUpdate(instance: Agent<any, any>): void {
         return oldBroadcast.call(instance, msg, without);
     }
     instance.broadcast = newBroadcast;
-    instance.constructor.prototype.broadcast = newBroadcast;
+    Object.getPrototypeOf(instance).broadcast = newBroadcast;
 }
 
 export abstract class KeepAliveAgent<
