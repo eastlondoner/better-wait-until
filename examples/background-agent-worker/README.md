@@ -1,231 +1,71 @@
-# 🤖 Chat Agent Starter Kit
+# 🤖 Better Wait Until  - Chat Agent Starter Kit
 
 ![npm i agents command](./npm-agents-banner.svg)
+Based on the [Chat Agent Starter Kit](https://github.com/cloudflare/agents-starter) by Cloudflare.
 
-<a href="https://deploy.workers.cloudflare.com/?url=https://github.com/cloudflare/agents-starter"><img src="https://deploy.workers.cloudflare.com/button" alt="Deploy to Cloudflare"/></a>
+## What's different?
 
-A starter template for building AI-powered chat agents using Cloudflare's Agent platform, powered by [`agents`](https://www.npmjs.com/package/agents). This project provides a foundation for creating interactive chat experiences with AI, complete with a modern UI and tool integration capabilities.
+This example demonstrates how to use `better-wait-until` with Cloudflare Agents to run **long-running background tasks** while keeping your chat conversation active and responsive.
 
-## Features
+### Key Features
 
-- 💬 Interactive chat interface with AI
-- 🛠️ Built-in tool system with human-in-the-loop confirmation
-- 📅 Advanced task scheduling (one-time, delayed, and recurring via cron)
-- 🌓 Dark/Light theme support
-- ⚡️ Real-time streaming responses
-- 🔄 State management and chat history
-- 🎨 Modern, responsive UI
+#### 🚀 Background Task Execution
+- **Run tasks in the background**: Use the `runBackgroundTask` tool to execute long-running operations without blocking the chat interface
+- **Keep chatting**: Continue your conversation with the agent while background tasks are running
+- **Get notified**: The agent automatically gets notified and reacts when background tasks complete *even if you are not connected to the chat* - this enables arbitrary long-running tasks to be completed without blocking the chat interface.
 
-## Prerequisites
+#### 🔄 Enhanced Agent with Keep-Alive
+This example uses `KeepAliveChatAgent` from `better-wait-until/agents` instead of the standard `AIChatAgent`. This ensures that:
+- Background tasks can run for **30+ minutes** (or longer) without being terminated
+- Your Durable Object stays alive while background work is processing
+- WebSocket-based keep-alive mechanism maintains the DO's activity
 
-- Cloudflare account
-- OpenAI API key
+#### 🛠️ Background Task Tool
+The `runBackgroundTask` tool demonstrates how to:
+- Execute tasks without blocking the main conversation thread
+- Access the agent context using `getCurrentAgent()` from the AsyncLocalStorage store
+- Use `ctx.waitUntil()` with better-wait-until's enhanced keep-alive mechanism
+- Notify users when tasks complete via `agent.executeTask()`
 
-## Quick Start
+### How It Works
 
-1. Create a new project:
+1. **User triggers a background task**: The agent uses the `runBackgroundTask` tool
+2. **Task runs in background**: The promise is passed to `ctx.waitUntil()` which is enhanced by `KeepAliveChatAgent`
+3. **Keep-alive mechanism activates**: A WebSocket connection keeps the Durable Object alive
+4. **User keeps chatting**: The conversation continues normally while the task processes
+5. **Task completes**: The agent automatically sends a notification message when done
 
-```bash
-npx create-cloudflare@latest --template cloudflare/agents-starter
-```
-
-2. Install dependencies:
-
-```bash
-npm install
-```
-
-3. Set up your environment:
-
-Create a `.dev.vars` file:
-
-```env
-OPENAI_API_KEY=your_openai_api_key
-```
-
-4. Run locally:
-
-```bash
-npm start
-```
-
-5. Deploy:
-
-```bash
-npm run deploy
-```
-
-## Project Structure
+### Example Usage
 
 ```
-├── src/
-│   ├── app.tsx        # Chat UI implementation
-│   ├── server.ts      # Chat agent logic
-│   ├── tools.ts       # Tool definitions
-│   ├── utils.ts       # Helper functions
-│   └── styles.css     # UI styling
+User: Can you run a long data processing task in the background?
+Agent: [Uses runBackgroundTask tool]
+Agent: I've started the background task. I'll let you know when it's done!
+User: Great! While that's running, can you help me with something else?
+Agent: Of course! What would you like help with?
+[... conversation continues ...]
+[2-3 minutes later]
+Agent: Your background task has completed successfully!
 ```
 
-## Customization Guide
+### Technical Implementation
 
-### Adding New Tools
+The example includes:
+- `KeepAliveChatAgent` - Base class that patches `ctx.waitUntil()` with keep-alive functionality
+- `runBackgroundTask` tool - Demonstrates background task execution with agent context access
+- WebSocket-based keep-alive - Maintains DO activity without excessive requests
+- `enable_ctx_exports` compatibility flag - Required for better-wait-until to access DO namespace
 
-Add new tools in `tools.ts` using the tool builder:
+### Files Modified
 
-```ts
-// Example of a tool that requires confirmation
-const searchDatabase = tool({
-  description: "Search the database for user records",
-  parameters: z.object({
-    query: z.string(),
-    limit: z.number().optional()
-  })
-  // No execute function = requires confirmation
-});
+- `src/server.ts` - Changed to extend `KeepAliveChatAgent` instead of `AIChatAgent`
+- `src/tools.ts` - Added `runBackgroundTask` to the available tools
+- `src/backgroundTask.ts` - New file implementing the background task tool
+- `src/utils.ts` - Updated to pass agent context to tool processing
+- `wrangler.jsonc` - Added `enable_ctx_exports` compatibility flag
+- `package.json` - Uses local `better-wait-until` package
 
-// Example of an auto-executing tool
-const getCurrentTime = tool({
-  description: "Get current server time",
-  parameters: z.object({}),
-  execute: async () => new Date().toISOString()
-});
 
-// Scheduling tool implementation
-const scheduleTask = tool({
-  description:
-    "schedule a task to be executed at a later time. 'when' can be a date, a delay in seconds, or a cron pattern.",
-  parameters: z.object({
-    type: z.enum(["scheduled", "delayed", "cron"]),
-    when: z.union([z.number(), z.string()]),
-    payload: z.string()
-  }),
-  execute: async ({ type, when, payload }) => {
-    // ... see the implementation in tools.ts
-  }
-});
-```
-
-To handle tool confirmations, add execution functions to the `executions` object:
-
-```typescript
-export const executions = {
-  searchDatabase: async ({
-    query,
-    limit
-  }: {
-    query: string;
-    limit?: number;
-  }) => {
-    // Implementation for when the tool is confirmed
-    const results = await db.search(query, limit);
-    return results;
-  }
-  // Add more execution handlers for other tools that require confirmation
-};
-```
-
-Tools can be configured in two ways:
-
-1. With an `execute` function for automatic execution
-2. Without an `execute` function, requiring confirmation and using the `executions` object to handle the confirmed action. NOTE: The keys in `executions` should match `toolsRequiringConfirmation` in `app.tsx`.
-
-### Use a different AI model provider
-
-The starting [`server.ts`](https://github.com/cloudflare/agents-starter/blob/main/src/server.ts) implementation uses the [`ai-sdk`](https://sdk.vercel.ai/docs/introduction) and the [OpenAI provider](https://sdk.vercel.ai/providers/ai-sdk-providers/openai), but you can use any AI model provider by:
-
-1. Installing an alternative AI provider for the `ai-sdk`, such as the [`workers-ai-provider`](https://sdk.vercel.ai/providers/community-providers/cloudflare-workers-ai) or [`anthropic`](https://sdk.vercel.ai/providers/ai-sdk-providers/anthropic) provider:
-2. Replacing the AI SDK with the [OpenAI SDK](https://github.com/openai/openai-node)
-3. Using the Cloudflare [Workers AI + AI Gateway](https://developers.cloudflare.com/ai-gateway/providers/workersai/#workers-binding) binding API directly
-
-For example, to use the [`workers-ai-provider`](https://sdk.vercel.ai/providers/community-providers/cloudflare-workers-ai), install the package:
-
-```sh
-npm install workers-ai-provider
-```
-
-Add an `ai` binding to `wrangler.jsonc`:
-
-```jsonc
-// rest of file
-  "ai": {
-    "binding": "AI"
-  }
-// rest of file
-```
-
-Replace the `@ai-sdk/openai` import and usage with the `workers-ai-provider`:
-
-```diff
-// server.ts
-// Change the imports
-- import { openai } from "@ai-sdk/openai";
-+ import { createWorkersAI } from 'workers-ai-provider';
-
-// Create a Workers AI instance
-+ const workersai = createWorkersAI({ binding: env.AI });
-
-// Use it when calling the streamText method (or other methods)
-// from the ai-sdk
-- const model = openai("gpt-4o-2024-11-20");
-+ const model = workersai("@cf/deepseek-ai/deepseek-r1-distill-qwen-32b")
-```
-
-Commit your changes and then run the `agents-starter` as per the rest of this README.
-
-### Modifying the UI
-
-The chat interface is built with React and can be customized in `app.tsx`:
-
-- Modify the theme colors in `styles.css`
-- Add new UI components in the chat container
-- Customize message rendering and tool confirmation dialogs
-- Add new controls to the header
-
-### Example Use Cases
-
-1. **Customer Support Agent**
-   - Add tools for:
-     - Ticket creation/lookup
-     - Order status checking
-     - Product recommendations
-     - FAQ database search
-
-2. **Development Assistant**
-   - Integrate tools for:
-     - Code linting
-     - Git operations
-     - Documentation search
-     - Dependency checking
-
-3. **Data Analysis Assistant**
-   - Build tools for:
-     - Database querying
-     - Data visualization
-     - Statistical analysis
-     - Report generation
-
-4. **Personal Productivity Assistant**
-   - Implement tools for:
-     - Task scheduling with flexible timing options
-     - One-time, delayed, and recurring task management
-     - Task tracking with reminders
-     - Email drafting
-     - Note taking
-
-5. **Scheduling Assistant**
-   - Build tools for:
-     - One-time event scheduling using specific dates
-     - Delayed task execution (e.g., "remind me in 30 minutes")
-     - Recurring tasks using cron patterns
-     - Task payload management
-     - Flexible scheduling patterns
-
-Each use case can be implemented by:
-
-1. Adding relevant tools in `tools.ts`
-2. Customizing the UI for specific interactions
-3. Extending the agent's capabilities in `server.ts`
-4. Adding any necessary external API integrations
 
 ## Learn More
 
