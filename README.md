@@ -1,6 +1,6 @@
 # better-wait-until
 
-A utility for Cloudflare Workers Durable Objects that ensures long-running background tasks actually complete.
+A utility for Cloudflare Workers Durable Objects that ensures long-running background tasks *actually* complete when you use `ctx.waitUntil`.
 
 Durable Objects gracelessly terminate background promises after 70-140s. When I say gracelessly I really mean it, finally blocks are not called, if you're lucky you may see "IoContext timed out due to inactivity, waitUntil tasks were cancelled without completing." in the logs, but you probably won't.
 
