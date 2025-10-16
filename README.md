@@ -2,7 +2,7 @@
 
 A utility for Cloudflare Workers Durable Objects that ensures long-running background tasks *actually* complete when you use `ctx.waitUntil`.
 
-**Why?** Because Durable Objects gracelessly terminate background promises after 70-140s.
+**Why?** Because Durable Objects gracelessly terminate background promises after **70-140s.**
 
 **Really** Yes really! When I say gracelessly I mean it, `finally` blocks are not called, your code is just evicted from CPU and memory. If you're lucky you see "IoContext timed out due to inactivity, waitUntil tasks were cancelled without completing." in the logs but you probably won't.
 
@@ -10,7 +10,7 @@ A utility for Cloudflare Workers Durable Objects that ensures long-running backg
 
 **YES, I know about waitUntil!** this is what happens, even if you're using it.
 
-This library allows you to keep your Durable Object alive significantly longer (more than 30 minutes). Switching is very easy, use the better-wait-until classes as drop in replacements for `DurableObject`, `Sandbox`, `Container`, `Agent` or `AIChatAgent` and `ctx.waitUntil` is patched automatically for you. If you want to get going then read the TLDR section but I recommend you read all the way through to find out why it might not be a good idea to actually do this.
+This library allows you to keep your Durable Object alive at least 10x longer (more than 30 minutes, potentially for hours). Switching is very easy, use the better-wait-until classes as drop in replacements for `DurableObject`, `Sandbox`, `Container`, `Agent` or `AIChatAgent` and `ctx.waitUntil` is patched automatically for you. If you want to get going then read the TLDR section but I recommend you read all the way through to find out why it might not be a good idea to actually do this.
 
 ## TLDR;
 
